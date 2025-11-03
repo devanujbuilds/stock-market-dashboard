@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Market Analysis Dashboard</title>
+    <style>
+        :root {
+            --primary: #00ff88;
+            --secondary: #0a1929;
+            --accent: #2196f3;
+            --text: #ffffff;
+            --background: #040b14;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --glow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 255, 136, 0.03) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(33, 150, 243, 0.03) 0%, transparent 20%);
+        }
+
+        header {
+            padding: 2rem;
+            background: linear-gradient(90deg, var(--secondary), transparent);
+            border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        #stock-details {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--glow);
+        }
+
+        .canvas-container {
+            background: rgba(10, 25, 41, 0.5);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        #chartCanvas {
+            width: 100%;
+            height: 400px;
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+
+        button.active {
+            background: var(--primary);
+            color: var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+
+        #summary {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #stock-list {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 1rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+        }
+
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s;
+        }
+
+        .stock-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .stock-item.selected {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: var(--primary);
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(10, 25, 41, 0.95);
+            padding: 0.5rem;
+            border-radius: 5px;
+            border: 1px solid var(--primary);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            white-space: nowrap;
+        }
+
+        #name {
+            color: var(--primary);
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        #profit {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        #bookValue {
+            color: var(--accent);
+        }
+
+        #peakValue, #lowValue {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 1rem;
+        }
+
+        .error-banner {
+            background: rgba(255, 200, 0, 0.1);
+            border: 1px solid rgba(255, 200, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #ffd700;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--primary);
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Stock Market Analysis Dashboard</h1>
+    </header>
+    <main>
+        <section id="stock-details">
+            <div id="error-container"></div>
+            <div id="chart-section">
+                <div class="canvas-container">
+                    <canvas id="chartCanvas"></canvas>
+                    <div class="tooltip" id="tooltip"></div>
+                    <div class="label" id="xAxisLabel"></div>
+                </div>
+                <div class="button-group">
+                    <button id="btn1mo" data-range="1mo">1 Month</button>
+                    <button id="btn3mo" data-range="3mo">3 Months</button>
+                    <button id="btn1y" data-range="1y">1 Year</button>
+                    <button id="btn5y" data-range="5y" class="active">5 Years</button>
+                </div>
+            </div>
+            <div id="summary">
+                <div>
+                    <span id="name"></span>
+                    &nbsp;&nbsp;&nbsp; <span id="profit">&nbsp;</span>
+                    &nbsp;&nbsp;&nbsp;<span id="bookValue"></span>
+                </div>
+                <p id="peakValue"></p>
+                <p id="lowValue"></p>
+                <p id="stock-summary" style="margin-top: 1rem; font-size: 0.9rem; color: #999; line-height: 1.5;"></p>
+            </div>
+        </section>
+        <aside id="stock-list">
+            <div class="loading">Loading stocks...</div>
+        </aside>
+    </main>
+
+    <script>
+        // State management
+        let currentStock = 'AAPL';
+        let currentTimeRange = '5y';
+        let apiAvailable = true;
+
+        // Mock data generator
+        function generateMockData(stock, range) {
+            const dataPoints = {
+                '1mo': 30,
+                '3mo': 90,
+                '1y': 252,
+                '5y': 1260
+            };
+            
+            const count = dataPoints[range] || 252;
+            const basePrice = {
+                'AAPL': 150, 'MSFT': 300, 'GOOGL': 120, 'AMZN': 140,
+                'PYPL': 60, 'TSLA': 200, 'JPM': 140, 'NVDA': 400,
+                'NFLX': 380, 'DIS': 90
+            }[stock] || 100;
+
+            const values = [];
+            const timestamps = [];
+            const now = Date.now();
+            
+            for (let i = 0; i < count; i++) {
+                const trend = Math.sin(i / count * Math.PI * 2) * 20;
+                const noise = (Math.random() - 0.5) * 10;
+                const value = basePrice + trend + noise + (i / count * 30);
+                values.push(Math.max(value, basePrice * 0.5));
+                
+                const daysAgo = count - i;
+                timestamps.push(new Date(now - daysAgo * 24 * 60 * 60 * 1000).getTime() / 1000);
+            }
+            
+            return { value: values, timeStamp: timestamps };
+        }
+
+        function getMockStats(stock) {
+            const data = {
+                'AAPL': { bookValue: 150.25, profit: 5.67 },
+                'MSFT': { bookValue: 310.50, profit: 8.23 },
+                'GOOGL': { bookValue: 125.75, profit: -2.34 },
+                'AMZN': { bookValue: 145.30, profit: 3.45 },
+                'PYPL': { bookValue: 62.80, profit: -5.67 },
+                'TSLA': { bookValue: 210.45, profit: 12.34 },
+                'JPM': { bookValue: 142.60, profit: 4.56 },
+                'NVDA': { bookValue: 420.90, profit: 15.78 },
+                'NFLX': { bookValue: 385.20, profit: -1.23 },
+                'DIS': { bookValue: 92.15, profit: 2.89 }
+            };
+            return data[stock] || { bookValue: 100, profit: 0 };
+        }
+
+        function getMockProfile(stock) {
+            return {
+                summary: `${stock} is a leading technology company known for innovation and market leadership. The company has shown consistent growth and maintains a strong position in the global market.`
+            };
+        }
+
+        // API fetch with fallback
+        async function fetchWithFallback(url, fallbackData) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    mode: 'cors',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                console.log('API Success:', url);
+                apiAvailable = true;
+                return data;
+                
+            } catch (error) {
+                console.warn('API failed, using mock data:', error.message);
+                apiAvailable = false;
+                showError('API unavailable - showing demo data');
+                return fallbackData();
+            }
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `
+                <div class="error-banner">
+                    <strong>⚠ API Connection Issue:</strong> ${message}
+                </div>
+            `;
+        }
+
+        // Fetch and draw chart
+        async function fetchAndCreateChart(timeRange, stockSymbol) {
+            currentStock = stockSymbol;
+            currentTimeRange = timeRange;
+
+            // Update button states
+            document.querySelectorAll('.button-group button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === timeRange);
+            });
+
+            try {
+                const data = await fetchWithFallback(
+                    'https://stocksapi-uhe1.onrender.com/api/stocks/getstocksdata',
+                    () => ({
+                        stocksData: [{
+                            [currentStock]: {
+                                [timeRange]: generateMockData(currentStock, timeRange)
+                            }
+                        }]
+                    })
+                );
+
+                const chartData = data.stocksData[0][currentStock][timeRange].value;
+                const timestamps = data.stocksData[0][currentStock][timeRange].timeStamp;
+
+                const formattedTimestamps = timestamps.map(timestamp => 
+                    new Date(timestamp * 1000).toLocaleDateString()
+                );
+
+                drawChart(chartData, formattedTimestamps, currentStock);
+                await getStockInfo(currentStock);
+
+            } catch (error) {
+                console.error('Error in fetchAndCreateChart:', error);
+                showError(error.message);
+            }
+        }
+
+        // Get stock info
+        async function getStockInfo(symbol) {
+            try {
+                const [statsData, profileData] = await Promise.all([
+                    fetchWithFallback(
+                        'https://stocksapi-uhe1.onrender.com/api/stocks/getstockstatsdata',
+                        () => ({
+                            stocksStatsData: [{
+                                [symbol]: getMockStats(symbol)
+                            }]
+                        })
+                    ),
+                    fetchWithFallback(
+                        'https://stocksapi-uhe1.onrender.com/api/stocks/getstocksprofiledata',
+                        () => ({
+                            stocksProfileData: [{
+                                [symbol]: getMockProfile(symbol)
+                            }]
+                        })
+                    )
+                ]);
+
+                const stats = statsData.stocksStatsData[0][symbol];
+                const profile = profileData.stocksProfileData[0][symbol];
+
+                document.getElementById('name').textContent = symbol;
+                document.getElementById('bookValue').textContent = `$${stats.bookValue.toFixed(2)}`;
+                
+                const profitElement = document.getElementById('profit');
+                profitElement.textContent = `${stats.profit.toFixed(2)}%`;
+                profitElement.style.color = stats.profit > 0 ? '#90EE90' : '#ff4444';
+
+                document.getElementById('stock-summary').textContent = profile.summary;
+
+            } catch (error) {
+                console.error('Error fetching stock info:', error);
+            }
+        }
+
+        // Draw chart function
+        function drawChart(data, labels, stockName) {
+            const canvas = document.getElementById('chartCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width - 32;
+            canvas.height = 400;
+
+            const chartHeight = canvas.height - 80;
+            const chartWidth = canvas.width - 80;
+            const leftMargin = 60;
+            const topMargin = 40;
+
+            const maxDataValue = Math.max(...data);
+            const minDataValue = Math.min(...data);
+            const valueRange = maxDataValue - minDataValue;
+            const padding = valueRange * 0.1;
+            const displayMax = maxDataValue + padding;
+            const displayMin = minDataValue - padding;
+            const displayRange = displayMax - displayMin;
+
+            const peakIndex = data.indexOf(maxDataValue);
+            const lowIndex = data.indexOf(minDataValue);
+
+            function drawBase() {
+                // Clear and background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0a1929';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Grid
+                ctx.strokeStyle = '#1a2332';
+                ctx.lineWidth = 1;
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '11px Arial';
+
+                // Horizontal grid
+                for (let i = 0; i <= 5; i++) {
+                    const y = topMargin + (chartHeight * i / 5);
+                    const value = displayMax - (displayRange * i / 5);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(leftMargin, y);
+                    ctx.lineTo(chartWidth + leftMargin, y);
+                    ctx.stroke();
+                    
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`$${value.toFixed(2)}`, leftMargin - 10, y + 4);
+                }
+
+                // Vertical grid
+                const timestampInterval = Math.ceil(labels.length / 8);
+                ctx.textAlign = 'center';
+                labels.forEach((label, index) => {
+                    if (index % timestampInterval === 0) {
+                        const x = (index / (data.length - 1)) * chartWidth + leftMargin;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x, topMargin);
+                        ctx.lineTo(x, chartHeight + topMargin);
+                        ctx.stroke();
+                        
+                        ctx.save();
+                        ctx.translate(x, chartHeight + topMargin + 20);
+                        ctx.rotate(-Math.PI / 6);
+                        ctx.fillText(label, 0, 0);
+                        ctx.restore();
+                    }
+                });
+
+                // Chart line
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                
+                data.forEach((value, index) => {
+                    const x = (index / (data.length - 1)) * chartWidth + leftMargin;
+                    const y = chartHeight + topMargin - ((value - displayMin) / displayRange * chartHeight);
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+
+                // Peak point
+                const peakX = (peakIndex / (data.length - 1)) * chartWidth + leftMargin;
+                const peakY = chartHeight + topMargin - ((maxDataValue - displayMin) / displayRange * chartHeight);
+                
+                ctx.beginPath();
+                ctx.arc(peakX, peakY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff88';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Low point
+                const lowX = (lowIndex / (data.length - 1)) * chartWidth + leftMargin;
+                const lowY = chartHeight + topMargin - ((minDataValue - displayMin) / displayRange * chartHeight);
+                
+                ctx.beginPath();
+                ctx.arc(lowX, lowY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff4444';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            drawBase();
+
+            // Update stats
+            document.getElementById('peakValue').textContent = `Peak: $${maxDataValue.toFixed(2)}`;
+            document.getElementById('lowValue').textContent = `Low: $${minDataValue.toFixed(2)}`;
+
+            // Tooltip
+            canvas.onmousemove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                if (x < leftMargin || x > chartWidth + leftMargin) {
+                    document.getElementById('tooltip').style.display = 'none';
+                    return;
+                }
+
+                const index = Math.round((x - leftMargin) / chartWidth * (data.length - 1));
+                
+                if (index >= 0 && index < data.length) {
+                    const tooltip = document.getElementById('tooltip');
+                    tooltip.textContent = `${labels[index]}: $${data[index].toFixed(2)}`;
+                    tooltip.style.left = `${x}px`;
+                    tooltip.style.top = `${e.clientY - rect.top - 30}px`;
+                    tooltip.style.display = 'block';
+                }
+            };
+
+            canvas.onmouseleave = () => {
+                document.getElementById('tooltip').style.display = 'none';
+            };
+        }
+
+        // Load stock list
+        async function loadStockList() {
+            const stockSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'PYPL', 'TSLA', 'JPM', 'NVDA', 'NFLX', 'DIS'];
+            const stockListElement = document.getElementById('stock-list');
+            
+            const data = await fetchWithFallback(
+                'https://stocksapi-uhe1.onrender.com/api/stocks/getstockstatsdata',
+                () => ({
+                    stocksStatsData: [
+                        Object.fromEntries(
+                            stockSymbols.map(sym => [sym, getMockStats(sym)])
+                        )
+                    ]
+                })
+            );
+
+            stockListElement.innerHTML = '';
+            
+            stockSymbols.forEach(symbol => {
+                const stats = data.stocksStatsData[0][symbol];
+                const item = document.createElement('div');
+                item.className = `stock-item ${symbol === currentStock ? 'selected' : ''}`;
+                item.innerHTML = `
+                    <div>
+                        <strong>${symbol}</strong><br>
+                        <span style="color: ${stats.profit >= 0 ? '#90EE90' : '#ff4444'}">
+                            ${stats.profit >= 0 ? '+' : ''}${stats.profit.toFixed(2)}%
+                        </span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="color: #2196f3">$${stats.bookValue.toFixed(2)}</span>
+                    </div>
+                `;
+                
+                item.onclick = () => {
+                    document.querySelectorAll('.stock-item').forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    fetchAndCreateChart(currentTimeRange, symbol);
+                };
+                
+                stockListElement.appendChild(item);
+            });
+        }
+
+        // Event listeners for time range buttons
+        document.querySelectorAll('.button-group button').forEach(button => {
+            button.addEventListener('click', () => {
+                fetchAndCreateChart(button.dataset.range, currentStock);
+            });
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            loadStockList();
+            fetchAndCreateChart('5y', 'AAPL');
+        });
+    </script>
+</body>
+</html>
